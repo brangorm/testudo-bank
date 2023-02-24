@@ -357,8 +357,20 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
+    // only count a deposit toward interest if: 1) the customer's deposit amount is above 20, 2) they have no overdraft balance, and 3) NumDepositsForInterest in the Customers table has reached 5.
+    int overdraftAmountInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    if (userDepositAmtInPennies >= 2000 && overdraftAmountInPennies == 0) {
+      int customerNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      if (customerNumDepositsForInterest == 4) {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+        applyInterest(user);
+      }
+      else {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, (customerNumDepositsForInterest+1));
+      }
+    }
+    
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -799,14 +811,28 @@ public class MvcController {
   }
 
   /**
+   * Helper method for applying interest rate.
    * 
-   * 
+   * Applies the interest rate specified in BALANCE_INTEREST_RATE to a customer's savings account.
+   * If the customer has a zero balance or is in overdraft, the interest will not be applied.
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int customerCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int customerOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
 
-    return "welcome";
+    // only apply interest if the customer has a non-zero balance and is not in overdraft.
+    if (customerCashBalanceInPennies > 0 && customerOverdraftBalanceInPennies == 0) {
+      int newCustomerCashBalanceInPennies = (int)((double)customerCashBalanceInPennies * BALANCE_INTEREST_RATE);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newCustomerCashBalanceInPennies);
+      return "account_info";
+    }
+    else {
+      return "welcome";
+    }
+    
 
   }
 
