@@ -357,18 +357,8 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
-    // only count a deposit toward interest if: 1) the customer's deposit amount is above 20, 2) they have no overdraft balance, and 3) NumDepositsForInterest in the Customers table has reached 5.
-    int overdraftAmountInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
-    if (userDepositAmtInPennies >= 2000 && overdraftAmountInPennies == 0) {
-      int customerNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
-      if (customerNumDepositsForInterest == 4) {
-        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
-        applyInterest(user);
-      }
-      else {
-        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, (customerNumDepositsForInterest+1));
-      }
-    }
+    //Conditionally apply interest using applyInterest() method
+    applyInterest(user);
     
     // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
@@ -820,20 +810,24 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
     String userID = user.getUsername();
+
+    // only count a deposit toward interest if: 1) the customer's deposit amount is above 20, 2) they have no overdraft balance, and 3) NumDepositsForInterest in the Customers table has reached 5.
+    int overdraftAmountInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     int customerCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-    int customerOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
-
-    // only apply interest if the customer has a non-zero balance and is not in overdraft.
-    if (customerCashBalanceInPennies > 0 && customerOverdraftBalanceInPennies == 0) {
-      int newCustomerCashBalanceInPennies = (int)((double)customerCashBalanceInPennies * BALANCE_INTEREST_RATE);
-      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newCustomerCashBalanceInPennies);
-      return "account_info";
+    double userDepositAmt = user.getAmountToDeposit();
+    int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt);
+    if (userDepositAmtInPennies >= 2000 && overdraftAmountInPennies == 0) {
+      int customerNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      if (customerNumDepositsForInterest == 4) {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+        int newCustomerCashBalanceInPennies = (int)((double)customerCashBalanceInPennies * BALANCE_INTEREST_RATE);
+        TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newCustomerCashBalanceInPennies);
+        return "account_info";
+      }
+      else {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, (customerNumDepositsForInterest+1));
+      }
     }
-    else {
-      return "welcome";
-    }
-    
-
+    return "welcome";
   }
-
 }
