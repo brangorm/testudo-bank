@@ -1689,4 +1689,109 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
   }
 
+   /**
+   * Test a situation in which a customer buys ETH, buys SOL, and then sells some SOL.
+   */
+  @Test
+  public void testBuyETHBuySOLSellSOL() throws ScriptException, SQLException {
+    // Test 1: Buy ETH
+    CryptoTransactionTester transactionTester = CryptoTransactionTester.builder()
+    .initialBalanceInDollars(20.0)
+    .build();
+
+    transactionTester.initialize();
+
+    CryptoTransaction buyETH = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(10.0)
+    .expectedEndingCryptoBalance(1)
+    .cryptoPrice(10.0)
+    .cryptoAmountToTransact(1.0)
+    .cryptoName("ETH")
+    .validPassword(true)
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(true)
+    .build();
+
+    transactionTester.test(buyETH);
+
+    // Test 2: Buy SOL
+
+    CryptoTransaction buySOL = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(0)
+    .expectedEndingCryptoBalance(1.0)
+    .cryptoPrice(10)
+    .cryptoAmountToTransact(1)
+    .cryptoName("SOL")
+    .validPassword(true)
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(true)
+    .build();
+
+    transactionTester.test(buySOL);
+
+    // Test 3: Sell SOL
+
+    CryptoTransaction sellSOL = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(10.0)
+    .expectedEndingCryptoBalance(0.0)
+    .cryptoPrice(10)
+    .cryptoAmountToTransact(1)
+    .cryptoName("SOL")
+    .validPassword(true)
+    .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+    .shouldSucceed(true)
+    .build();
+
+    transactionTester.test(sellSOL);
+  }
+
+   /**
+   * Test a situation where a customer tries to buy BTC, which TestudoBank does not support.
+   */
+  @Test
+  public void testBuyBTC() throws ScriptException, SQLException {
+    CryptoTransactionTester transactionTester = CryptoTransactionTester.builder()
+    .initialBalanceInDollars(10.0)
+    .build();
+
+    transactionTester.initialize();
+
+    CryptoTransaction buyBTC = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(10.0)
+    .expectedEndingCryptoBalance(0)
+    .cryptoPrice(10.0)
+    .cryptoAmountToTransact(1.0)
+    .cryptoName("BTC")
+    .validPassword(true)
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(false)
+    .build();
+
+    transactionTester.test(buyBTC);
+  }
+
+   /**
+   * Test a situation where a customer tries to sell BTC, which TestudoBank does not support.
+   */
+  @Test
+  public void testSellBTC() throws ScriptException, SQLException {
+    CryptoTransactionTester transactionTester = CryptoTransactionTester.builder()
+    .initialBalanceInDollars(0.0)
+    .build();
+
+    transactionTester.initialize();
+
+    CryptoTransaction sellBTC = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(0.0)
+    .expectedEndingCryptoBalance(0)
+    .cryptoPrice(10.0)
+    .cryptoAmountToTransact(1.0)
+    .cryptoName("BTC")
+    .validPassword(true)
+    .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+    .shouldSucceed(false)
+    .build();
+
+    transactionTester.test(sellBTC);
+  }
 }
