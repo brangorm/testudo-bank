@@ -357,8 +357,10 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
-    // update Model so that View can access new main balance, overdraft balance, and logs
+    //Conditionally apply interest using applyInterest() method
     applyInterest(user);
+    
+    // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
     return "account_info";
   }
@@ -799,15 +801,33 @@ public class MvcController {
   }
 
   /**
+   * Helper method for applying interest rate.
    * 
-   * 
+   * Applies the interest rate specified in BALANCE_INTEREST_RATE to a customer's savings account.
+   * If the customer has a zero balance or is in overdraft, the interest will not be applied.
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
 
+    // only count a deposit toward interest if: 1) the customer's deposit amount is above 20, 2) they have no overdraft balance, and 3) NumDepositsForInterest in the Customers table has reached 5.
+    int overdraftAmountInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    int customerCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    double userDepositAmt = user.getAmountToDeposit();
+    int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt);
+    if (userDepositAmtInPennies >= 2000 && overdraftAmountInPennies == 0) {
+      int customerNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      if (customerNumDepositsForInterest == 4) {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+        int newCustomerCashBalanceInPennies = (int)((double)customerCashBalanceInPennies * BALANCE_INTEREST_RATE);
+        TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newCustomerCashBalanceInPennies);
+        return "account_info";
+      }
+      else {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, (customerNumDepositsForInterest+1));
+      }
+    }
     return "welcome";
-
   }
-
 }
