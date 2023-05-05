@@ -51,6 +51,12 @@ public class TestudoBankRepository {
     return transactionLogs;
   }
 
+  public static List<Map<String,Object>> getRecentDeposits(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
+    String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s' AND Action='Deposit' ORDER BY Timestamp DESC LIMIT %d;", customerID, numTransactionsToFetch);
+    List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
+    return transactionLogs;
+  }
+
   public static List<Map<String,Object>> getTransferLogs(JdbcTemplate jdbcTemplate, String customerID, int numTransfersToFetch) {
     String getTransferHistorySql = String.format("Select * from TransferHistory WHERE TransferFrom='%s' OR TransferTo='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, customerID, numTransfersToFetch);
     List<Map<String,Object>> transferLogs = jdbcTemplate.queryForList(getTransferHistorySql);
@@ -78,6 +84,17 @@ public class TestudoBankRepository {
     String getCustomerNumberOfDepositsForInterestSql = String.format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", customerID);
     int numberOfDepositsForInterest = jdbcTemplate.queryForObject(getCustomerNumberOfDepositsForInterestSql, Integer.class);
     return numberOfDepositsForInterest;
+  }
+
+  public static void setCustomerVIPStatus(JdbcTemplate jdbcTemplate, String customerID, int status) {
+    String setCustomerVIPStatusSql = String.format("UPDATE Customers SET VIPTag = %d WHERE CustomerID='%s';", status, customerID);
+    jdbcTemplate.update(setCustomerVIPStatusSql);
+  }
+
+  public static int getCustomerVIPStatus(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerVIPStatusSql = String.format("SELECT VIPTag FROM Customers WHERE CustomerID='%s';", customerID);
+    int status = jdbcTemplate.queryForObject(getCustomerVIPStatusSql, Integer.class);
+    return status;
   }
 
   public static void setCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID, int numDepositsForInterest) { 
