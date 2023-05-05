@@ -1794,4 +1794,107 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     transactionTester.test(sellBTC);
   }
+
+  /**
+   * Test simple success case: that the higher interest rate is being applied for users who are VIPs.
+   */
+  @Test
+  public void testVIPInterestRateAppliedEveryFiveTransactions() throws ScriptException, SQLException {
+    // Initialize variable for interest rate.
+    double INTEREST_RATE = 1.5225;
+
+    // Initialize Customer1's balance to 1000000.
+    int CUSTOMER1_BALANCE_IN_PENNIES = 1000000;
+    MvcControllerIntegTestHelpers.addVIPToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    // Prepare Deposit Form to Deposit $20 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send 5 requests to the Deposit Form's POST handler in MvcController
+    for (int i = 0; i < 5; i++) {
+      controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer balance had interest applied one time
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT); // user input is in dollar amount, not pennies.
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = (int)(INTEREST_RATE * (CUSTOMER1_BALANCE_IN_PENNIES + (5.0*CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES)));
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+  }
+
+  /**
+   * Test failure case: A user who was a VIP in the past but falls short of the balance should not receive the VIP rate.
+   */
+  @Test
+  public void testNonVIPInterestRateAppliedEveryFiveTransactions() throws ScriptException, SQLException {
+    // Initialize variable for interest rate.
+    double INTEREST_RATE = 1.015;
+
+    // Initialize Customer1's balance to 10000.
+    int CUSTOMER1_BALANCE_IN_PENNIES = 10000;
+    MvcControllerIntegTestHelpers.addVIPToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit $20 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send 5 requests to the Deposit Form's POST handler in MvcController
+    for (int i = 0; i < 5; i++) {
+      //Upon these deposits, the user's VIP status should be updated to 0.
+      controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer balance had interest applied one time
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT); // user input is in dollar amount, not pennies.
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = (int)(INTEREST_RATE * (CUSTOMER1_BALANCE_IN_PENNIES + (5.0*CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES)));
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+  }
+
+  /**
+   * Test edge case: A user (former-VIP) whose most recent deposit puts them over the $10,000 minimum should not receive the VIP interest rate.
+   */
+  @Test
+  public void testAlmostVIPInterestRateNotAppliedEveryFiveTransactions() throws ScriptException, SQLException {
+    // Initialize variable for interest rate.
+    double INTEREST_RATE = 1.015;
+
+    // Initialize Customer1's balance to 10000.
+    int CUSTOMER1_BALANCE_IN_PENNIES = 0;
+    MvcControllerIntegTestHelpers.addVIPToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit $2000 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 2000; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send 5 requests to the Deposit Form's POST handler in MvcController
+    for (int i = 0; i < 5; i++) {
+      //Upon these deposits, the user's VIP status should be updated to 0.
+      controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer balance had interest applied one time
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT); // user input is in dollar amount, not pennies.
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = (int)(INTEREST_RATE * (CUSTOMER1_BALANCE_IN_PENNIES + (5.0*CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES)));
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+  }
 }

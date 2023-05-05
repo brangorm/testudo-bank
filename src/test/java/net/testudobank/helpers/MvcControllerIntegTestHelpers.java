@@ -34,16 +34,39 @@ public class MvcControllerIntegTestHelpers {
 
   // Uses given customer details to initialize the customer in the Customers and Passwords table in the MySQL DB.
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals, int numInterestDeposits) throws ScriptException {
-    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals, numInterestDeposits);
+    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals, numInterestDeposits, 0);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSql);
 
     String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')", ID, password);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerPasswordSql);
   }
 
-  // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes
+  // Uses given customer details to initialize the customer in the Customers and Passwords table in the MySQL DB.
+  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals, int numInterestDeposits, int VIPTag) throws ScriptException {
+    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals, numInterestDeposits, VIPTag);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSql);
+
+    String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')", ID, password);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerPasswordSql);
+  }
+
+  // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes and no VIP status
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits) throws ScriptException {
-    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);
+    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0, 0);
+  }
+
+  // Adds a VIP to the MySQL DB with no overdraft balance or fraud disputes and no VIP status
+  public static void addVIPToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits) throws ScriptException {
+    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0, 1);
+    java.text.SimpleDateFormat SQL_DATETIME_FORMATTER = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    String insertRowToTransactionHistorySql = String.format("INSERT INTO TransactionHistory VALUES ('%s', '%s', '%s', %d);",
+    ID,
+    SQL_DATETIME_FORMATTER.format(new java.util.Date()),
+    "Deposit",
+    0);
+    for (int i = 0; i < 40; i++) { //add 40 deposit transactions to transactionHistory
+      ScriptUtils.executeDatabaseScript(dbDelegate, null, insertRowToTransactionHistorySql);
+    }
   }
 
   // Set crypto balance to specified amount
